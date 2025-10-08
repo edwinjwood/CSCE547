@@ -22,13 +22,14 @@ public class Application
 
     public Application()
     {
-        var databasePath = Path.Combine(AppContext.BaseDirectory, "data", "dirtbikepark.db");
+        var databasePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Data", "dirtbikepark.db"));
+        Directory.CreateDirectory(Path.GetDirectoryName(databasePath)!);
         var dbContextFactory = new DirtBikeParkDbContextFactory(databasePath);
         dbContextFactory.EnsureCreatedAsync().GetAwaiter().GetResult();
 
-    IParkRepository parkRepository = new SqliteParkRepository(dbContextFactory);
-    IBookingRepository bookingRepository = new SqliteBookingRepository(dbContextFactory);
-    ICartRepository cartRepository = new SqliteCartRepository(dbContextFactory);
+        IParkRepository parkRepository = new SqliteParkRepository(dbContextFactory);
+        IBookingRepository bookingRepository = new SqliteBookingRepository(dbContextFactory);
+        ICartRepository cartRepository = new SqliteCartRepository(dbContextFactory);
         IPaymentProcessor paymentProcessor = new MockPaymentProcessor();
 
         // Seed sample data

@@ -43,7 +43,9 @@ _ReSharper*/
 Thumbs.db
 
 # SQLite database
-Dirt Bike Park App/DirtBikePark.Cli/data/
+Dirt Bike Park App/DirtBikePark.Cli/Data/*.db
+Dirt Bike Park App/DirtBikePark.Cli/Data/*.db-shm
+Dirt Bike Park App/DirtBikePark.Cli/Data/*.db-wal
 
 # Tooling
 *.vs/
