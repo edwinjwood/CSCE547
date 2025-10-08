@@ -1,14 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DirtBikePark.Cli.Domain.Entities;
 using DirtBikePark.Cli.Domain.Interfaces;
 using DirtBikePark.Cli.Domain.ValueObjects;
+using DirtBikePark.Cli.Infrastructure.Persistence.Entities;
 using DirtBikePark.Cli.Infrastructure.Storage;
-using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 
 namespace DirtBikePark.Cli.Infrastructure.Repositories;
 
@@ -17,182 +17,137 @@ namespace DirtBikePark.Cli.Infrastructure.Repositories;
 /// </summary>
 public sealed class SqliteParkRepository : IParkRepository
 {
-    private readonly SqliteConnectionFactory _connectionFactory;
+    private readonly DirtBikeParkDbContextFactory _contextFactory;
 
-    public SqliteParkRepository(SqliteConnectionFactory connectionFactory)
+    public SqliteParkRepository(DirtBikeParkDbContextFactory contextFactory)
     {
-        _connectionFactory = connectionFactory;
+        _contextFactory = contextFactory;
     }
 
     public async Task<IReadOnlyCollection<Park>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var parks = new List<Park>();
-        await using var connection = _connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var context = _contextFactory.CreateDbContext();
+        var records = await context.Parks
+            .AsNoTracking()
+            .Include(p => p.Availability)
+            .OrderBy(p => p.Name)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
 
-        var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Name, Description, Location, GuestLimit, AvailableGuestCapacity, PricePerGuestPerDayAmount, PricePerGuestPerDayCurrency, CreatedAtUtc, LastModifiedUtc FROM parks ORDER BY Name";
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            var parkId = Guid.Parse(reader.GetString(0));
-            var availableDates = await LoadAvailabilityAsync(connection, parkId, cancellationToken).ConfigureAwait(false);
-
-            var park = new Park(
-                parkId,
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetInt32(4),
-                reader.GetInt32(5),
-                new Money(Convert.ToDecimal(reader.GetDouble(6), CultureInfo.InvariantCulture), reader.GetString(7)),
-                availableDates,
-                DateTime.Parse(reader.GetString(8), null, DateTimeStyles.RoundtripKind),
-                DateTime.Parse(reader.GetString(9), null, DateTimeStyles.RoundtripKind));
-
-            parks.Add(park);
-        }
-
-        return parks.AsReadOnly();
+        return records.Select(MapToDomain).ToList().AsReadOnly();
     }
 
     public async Task<Park?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var context = _contextFactory.CreateDbContext();
+        var record = await context.Parks
+            .AsNoTracking()
+            .Include(p => p.Availability)
+            .SingleOrDefaultAsync(p => p.Id == id, cancellationToken)
+            .ConfigureAwait(false);
 
-        var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, Name, Description, Location, GuestLimit, AvailableGuestCapacity, PricePerGuestPerDayAmount, PricePerGuestPerDayCurrency, CreatedAtUtc, LastModifiedUtc FROM parks WHERE Id = $id";
-        command.Parameters.AddWithValue("$id", id.ToString());
-
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            return null;
-        }
-
-        var availability = await LoadAvailabilityAsync(connection, id, cancellationToken).ConfigureAwait(false);
-        return new Park(
-            Guid.Parse(reader.GetString(0)),
-            reader.GetString(1),
-            reader.GetString(2),
-            reader.GetString(3),
-            reader.GetInt32(4),
-            reader.GetInt32(5),
-            new Money(Convert.ToDecimal(reader.GetDouble(6), CultureInfo.InvariantCulture), reader.GetString(7)),
-            availability,
-            DateTime.Parse(reader.GetString(8), null, DateTimeStyles.RoundtripKind),
-            DateTime.Parse(reader.GetString(9), null, DateTimeStyles.RoundtripKind));
+        return record is null ? null : MapToDomain(record);
     }
 
     public async Task AddAsync(Park park, CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = connection.BeginTransaction();
-
-        await UpsertParkAsync(connection, transaction, park, cancellationToken).ConfigureAwait(false);
-        await ReplaceAvailabilityAsync(connection, transaction, park, cancellationToken).ConfigureAwait(false);
-
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        await using var context = _contextFactory.CreateDbContext();
+        var record = MapToRecord(park);
+        context.Parks.Add(record);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<bool> RemoveAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var context = _contextFactory.CreateDbContext();
+        var record = await context.Parks.FindAsync(new object[] { id }, cancellationToken).ConfigureAwait(false);
+        if (record is null)
+        {
+            return false;
+        }
 
-        var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM parks WHERE Id = $id";
-        command.Parameters.AddWithValue("$id", id.ToString());
-
-        var rows = await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        return rows > 0;
+        context.Parks.Remove(record);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return true;
     }
 
     public async Task UpdateAsync(Park park, CancellationToken cancellationToken = default)
     {
-        await using var connection = _connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-        await using var transaction = connection.BeginTransaction();
+        await using var context = _contextFactory.CreateDbContext();
+        var existing = await context.Parks
+            .Include(p => p.Availability)
+            .SingleOrDefaultAsync(p => p.Id == park.Id, cancellationToken)
+            .ConfigureAwait(false);
 
-        await UpsertParkAsync(connection, transaction, park, cancellationToken).ConfigureAwait(false);
-        await ReplaceAvailabilityAsync(connection, transaction, park, cancellationToken).ConfigureAwait(false);
+        if (existing is null)
+        {
+            context.Parks.Add(MapToRecord(park));
+        }
+        else
+        {
+            existing.Name = park.Name;
+            existing.Description = park.Description;
+            existing.Location = park.Location;
+            existing.GuestLimit = park.GuestLimit;
+            existing.AvailableGuestCapacity = park.AvailableGuestCapacity;
+            existing.PricePerGuestPerDayAmount = park.PricePerGuestPerDay.Amount;
+            existing.PricePerGuestPerDayCurrency = park.PricePerGuestPerDay.Currency;
+            existing.LastModifiedUtc = park.LastModifiedUtc;
 
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+            existing.Availability.Clear();
+            foreach (var date in park.AvailableDates.OrderBy(d => d))
+            {
+                existing.Availability.Add(new ParkAvailabilityRecord
+                {
+                    ParkId = existing.Id,
+                    Date = date
+                });
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task UpsertParkAsync(SqliteConnection connection, SqliteTransaction transaction, Park park, CancellationToken cancellationToken)
+    private static Park MapToDomain(ParkRecord record)
     {
-        await using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = @"INSERT INTO parks (Id, Name, Description, Location, GuestLimit, AvailableGuestCapacity, PricePerGuestPerDayAmount, PricePerGuestPerDayCurrency, CreatedAtUtc, LastModifiedUtc)
-                                 VALUES ($id, $name, $description, $location, $guestLimit, $availableCapacity, $priceAmount, $priceCurrency, $createdAt, $lastModified)
-                                 ON CONFLICT(Id) DO UPDATE SET
-                                     Name = excluded.Name,
-                                     Description = excluded.Description,
-                                     Location = excluded.Location,
-                                     GuestLimit = excluded.GuestLimit,
-                                     AvailableGuestCapacity = excluded.AvailableGuestCapacity,
-                                     PricePerGuestPerDayAmount = excluded.PricePerGuestPerDayAmount,
-                                     PricePerGuestPerDayCurrency = excluded.PricePerGuestPerDayCurrency,
-                                     LastModifiedUtc = excluded.LastModifiedUtc";
-
-        command.Parameters.AddWithValue("$id", park.Id.ToString());
-        command.Parameters.AddWithValue("$name", park.Name);
-        command.Parameters.AddWithValue("$description", park.Description);
-        command.Parameters.AddWithValue("$location", park.Location);
-        command.Parameters.AddWithValue("$guestLimit", park.GuestLimit);
-        command.Parameters.AddWithValue("$availableCapacity", park.AvailableGuestCapacity);
-    command.Parameters.AddWithValue("$priceAmount", Convert.ToDouble(park.PricePerGuestPerDay.Amount));
-        command.Parameters.AddWithValue("$priceCurrency", park.PricePerGuestPerDay.Currency);
-        command.Parameters.AddWithValue("$createdAt", park.CreatedAtUtc.ToString("O"));
-        command.Parameters.AddWithValue("$lastModified", park.LastModifiedUtc.ToString("O"));
-
-        await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return new Park(
+            record.Id,
+            record.Name,
+            record.Description,
+            record.Location,
+            record.GuestLimit,
+            record.AvailableGuestCapacity,
+            new Money(record.PricePerGuestPerDayAmount, record.PricePerGuestPerDayCurrency),
+            record.Availability.Select(a => a.Date),
+            record.CreatedAtUtc,
+            record.LastModifiedUtc);
     }
 
-    private static async Task ReplaceAvailabilityAsync(SqliteConnection connection, SqliteTransaction transaction, Park park, CancellationToken cancellationToken)
+    private static ParkRecord MapToRecord(Park park)
     {
-        await using (var deleteCommand = connection.CreateCommand())
+        var record = new ParkRecord
         {
-            deleteCommand.Transaction = transaction;
-            deleteCommand.CommandText = "DELETE FROM park_availability WHERE ParkId = $id";
-            deleteCommand.Parameters.AddWithValue("$id", park.Id.ToString());
-            await deleteCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            Id = park.Id,
+            Name = park.Name,
+            Description = park.Description,
+            Location = park.Location,
+            GuestLimit = park.GuestLimit,
+            AvailableGuestCapacity = park.AvailableGuestCapacity,
+            PricePerGuestPerDayAmount = park.PricePerGuestPerDay.Amount,
+            PricePerGuestPerDayCurrency = park.PricePerGuestPerDay.Currency,
+            CreatedAtUtc = park.CreatedAtUtc,
+            LastModifiedUtc = park.LastModifiedUtc
+        };
+
+        foreach (var date in park.AvailableDates.OrderBy(d => d))
+        {
+            record.Availability.Add(new ParkAvailabilityRecord
+            {
+                ParkId = park.Id,
+                Date = date
+            });
         }
 
-        if (!park.AvailableDates.Any())
-        {
-            return;
-        }
-
-        foreach (var date in park.AvailableDates)
-        {
-            await using var insertCommand = connection.CreateCommand();
-            insertCommand.Transaction = transaction;
-            insertCommand.CommandText = "INSERT INTO park_availability (ParkId, Date) VALUES ($id, $date)";
-            insertCommand.Parameters.AddWithValue("$id", park.Id.ToString());
-            insertCommand.Parameters.AddWithValue("$date", date.ToString("O"));
-            await insertCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private static async Task<IReadOnlyCollection<DateOnly>> LoadAvailabilityAsync(SqliteConnection connection, Guid parkId, CancellationToken cancellationToken)
-    {
-        var command = connection.CreateCommand();
-        command.CommandText = "SELECT Date FROM park_availability WHERE ParkId = $id ORDER BY Date";
-        command.Parameters.AddWithValue("$id", parkId.ToString());
-
-        var dates = new List<DateOnly>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            var value = reader.GetString(0);
-            dates.Add(DateOnly.ParseExact(value, "O", CultureInfo.InvariantCulture));
-        }
-
-        return dates.AsReadOnly();
+        return record;
     }
 }

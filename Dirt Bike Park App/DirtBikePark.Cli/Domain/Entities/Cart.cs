@@ -26,6 +26,23 @@ public class Cart
         LastUpdatedUtc = CreatedAtUtc;
     }
 
+    internal Cart(Guid id, DateTime createdAtUtc, DateTime lastUpdatedUtc, IEnumerable<CartItem> items)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("Cart id cannot be empty.", nameof(id));
+        }
+
+        Id = id;
+        CreatedAtUtc = createdAtUtc;
+        LastUpdatedUtc = lastUpdatedUtc;
+
+        foreach (var item in items)
+        {
+            _items[item.BookingId] = item;
+        }
+    }
+
     public void AddOrUpdateItem(CartItem item)
     {
         Snapshot();

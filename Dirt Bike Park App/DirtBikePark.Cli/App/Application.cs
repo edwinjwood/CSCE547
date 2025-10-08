@@ -23,12 +23,12 @@ public class Application
     public Application()
     {
         var databasePath = Path.Combine(AppContext.BaseDirectory, "data", "dirtbikepark.db");
-        var connectionFactory = new SqliteConnectionFactory(databasePath);
-        connectionFactory.InitializeAsync().GetAwaiter().GetResult();
+        var dbContextFactory = new DirtBikeParkDbContextFactory(databasePath);
+        dbContextFactory.EnsureCreatedAsync().GetAwaiter().GetResult();
 
-        IParkRepository parkRepository = new SqliteParkRepository(connectionFactory);
-        IBookingRepository bookingRepository = new SqliteBookingRepository(connectionFactory);
-        var cartRepository = new InMemoryCartRepository();
+    IParkRepository parkRepository = new SqliteParkRepository(dbContextFactory);
+    IBookingRepository bookingRepository = new SqliteBookingRepository(dbContextFactory);
+    ICartRepository cartRepository = new SqliteCartRepository(dbContextFactory);
         IPaymentProcessor paymentProcessor = new MockPaymentProcessor();
 
         // Seed sample data

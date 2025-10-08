@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DirtBikePark.Cli")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+90031f24ac0117baf5cb6e55af9542aceecc8a50")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ccae2064e10431f1c8a12a680718fd4656d36bf9")]
 [assembly: System.Reflection.AssemblyProductAttribute("DirtBikePark.Cli")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DirtBikePark.Cli")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

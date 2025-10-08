@@ -22,8 +22,8 @@ CSCE547/
 │     ├─ Domain/             # Entities, services, interfaces, value objects
 │     ├─ Infrastructure/
 │     │  ├─ Payments/        # Mock payment processor
-│     │  └─ Repositories/    # SQLite repositories (parks + bookings), in-memory cart
-│     │     └─ Storage/      # `SqliteConnectionFactory` + schema bootstrap
+│     │  └─ Repositories/    # SQLite repositories (parks, bookings, carts)
+│     │     └─ Storage/      # `DirtBikeParkDbContextFactory` + schema bootstrap
 │     ├─ Presentation/       # CLI pages + menu renderer
 │     └─ Program.cs          # Entry point (awaits `Application.RunAsync`)
 └─ README.md
@@ -55,8 +55,7 @@ Entities (`Park`, `Booking`, `Cart`, `CartItem`) enforce invariants such as capa
 
 ### Persistence (`Infrastructure/Repositories`)
 
-- **SQLite-backed repositories** use `Microsoft.Data.Sqlite` to store parks, bookings, and reserved dates. Operations run within transactions and convert domain types (e.g., `DateOnly`) into persisted ISO strings.
-- **Cart repository** remains in-memory; carts are recreated per CLI session. The TODO is to swap this with a SQLite implementation if persistent carts become a requirement.
+- **SQLite-backed repositories** use Entity Framework Core with `Microsoft.EntityFrameworkCore.Sqlite` to store parks, bookings, carts, and related child records. LINQ queries drive the CRUD operations while value converters serialize `DateOnly` fields.
 
 ### Presentation (`Presentation/*`)
 

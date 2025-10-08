@@ -2,18 +2,19 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Data.Sqlite;
+using DirtBikePark.Cli.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace DirtBikePark.Cli.Infrastructure.Storage;
 
 /// <summary>
-/// Provides configured SQLite connections and ensures the schema exists.
+/// Provides configured EF Core contexts backed by SQLite and ensures the schema exists.
 /// </summary>
-public sealed class SqliteConnectionFactory
+public sealed class DirtBikeParkDbContextFactory
 {
-    private readonly string _connectionString;
+    private readonly DbContextOptions<DirtBikeParkDbContext> _options;
 
-    public SqliteConnectionFactory(string databasePath)
+    public DirtBikeParkDbContextFactory(string databasePath)
     {
         if (string.IsNullOrWhiteSpace(databasePath))
         {
@@ -26,70 +27,16 @@ public sealed class SqliteConnectionFactory
             Directory.CreateDirectory(directory);
         }
 
-        var builder = new SqliteConnectionStringBuilder
-        {
-            DataSource = databasePath,
-            Mode = SqliteOpenMode.ReadWriteCreate
-        };
-
-        _connectionString = builder.ToString();
+        _options = new DbContextOptionsBuilder<DirtBikeParkDbContext>()
+            .UseSqlite($"Data Source={databasePath}")
+            .Options;
     }
 
-    public SqliteConnection CreateConnection() => new(_connectionString);
+    public DirtBikeParkDbContext CreateDbContext() => new(_options);
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public async Task EnsureCreatedAsync(CancellationToken cancellationToken = default)
     {
-        await using var connection = CreateConnection();
-        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-
-        var commands = new[]
-        {
-            @"CREATE TABLE IF NOT EXISTS parks (
-                Id TEXT PRIMARY KEY,
-                Name TEXT NOT NULL,
-                Description TEXT NOT NULL,
-                Location TEXT NOT NULL,
-                GuestLimit INTEGER NOT NULL,
-                AvailableGuestCapacity INTEGER NOT NULL,
-                PricePerGuestPerDayAmount REAL NOT NULL,
-                PricePerGuestPerDayCurrency TEXT NOT NULL,
-                CreatedAtUtc TEXT NOT NULL,
-                LastModifiedUtc TEXT NOT NULL
-            );",
-            @"CREATE TABLE IF NOT EXISTS park_availability (
-                ParkId TEXT NOT NULL,
-                Date TEXT NOT NULL,
-                PRIMARY KEY (ParkId, Date),
-                FOREIGN KEY (ParkId) REFERENCES parks(Id) ON DELETE CASCADE
-            );",
-            @"CREATE TABLE IF NOT EXISTS bookings (
-                Id TEXT PRIMARY KEY,
-                ParkId TEXT NOT NULL,
-                GuestName TEXT NOT NULL,
-                Guests INTEGER NOT NULL,
-                StartDate TEXT NOT NULL,
-                DayCount INTEGER NOT NULL,
-                PricePerDayAmount REAL NOT NULL,
-                PricePerDayCurrency TEXT NOT NULL,
-                Status TEXT NOT NULL,
-                CreatedAtUtc TEXT NOT NULL,
-                CancelledAtUtc TEXT,
-                GuestCategory TEXT NOT NULL,
-                FOREIGN KEY (ParkId) REFERENCES parks(Id) ON DELETE CASCADE
-            );",
-            @"CREATE TABLE IF NOT EXISTS booking_reserved_dates (
-                BookingId TEXT NOT NULL,
-                Date TEXT NOT NULL,
-                PRIMARY KEY (BookingId, Date),
-                FOREIGN KEY (BookingId) REFERENCES bookings(Id) ON DELETE CASCADE
-            );"
-        };
-
-        foreach (var commandText in commands)
-        {
-            await using var command = connection.CreateCommand();
-            command.CommandText = commandText;
-            await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
+        await using var context = CreateDbContext();
+        await context.Database.EnsureCreatedAsync(cancellationToken).ConfigureAwait(false);
     }
 }
