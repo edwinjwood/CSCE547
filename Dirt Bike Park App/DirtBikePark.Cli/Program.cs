@@ -7,6 +7,7 @@ using DirtBikePark.Cli.Infrastructure.Repositories;
 using DirtBikePark.Cli.Infrastructure.Storage;
 using DirtBikePark.Cli.Presentation.Api;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.OpenApi.Models;
 
 var databasePath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Data", "dirtbikepark.db"));
 var dbContextFactory = new DirtBikeParkDbContextFactory(databasePath);
@@ -27,6 +28,17 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+	options.SwaggerDoc("v1", new OpenApiInfo
+	{
+		Title = "Dirt Bike Park API",
+		Version = "v1",
+		Description = "Endpoints for managing parks, bookings, and carts"
+	});
+});
+
 builder.Services.AddSingleton(dbContextFactory);
 builder.Services.AddScoped<IParkRepository, SqliteParkRepository>();
 builder.Services.AddScoped<IBookingRepository, SqliteBookingRepository>();
@@ -38,6 +50,9 @@ builder.Services.AddScoped<CartService>();
 var webApp = builder.Build();
 
 await SeedDataAsync(webApp.Services).ConfigureAwait(false);
+
+webApp.UseSwagger();
+webApp.UseSwaggerUI();
 
 webApp.MapParkEndpoints();
 webApp.MapBookingEndpoints();
