@@ -24,15 +24,21 @@ public class BookingService
         _bookingRepository = bookingRepository;
     }
 
+    /// <summary>
+    /// Methods to retrieve bookings from the repository based on different criteria.
+    /// </summary>
+    
+    //Get all bookings in the system
     public Task<IReadOnlyCollection<Booking>> GetAllBookingsAsync(CancellationToken cancellationToken = default)
         => _bookingRepository.GetAllAsync(cancellationToken);
-
+    //Get bookings for a specific park
     public Task<IReadOnlyCollection<Booking>> GetBookingsByParkAsync(Guid parkId, CancellationToken cancellationToken = default)
         => _bookingRepository.GetByParkAsync(parkId, cancellationToken);
-
+    //Get a specific booking by its bookingId
     public Task<Booking?> GetBookingAsync(Guid bookingId, CancellationToken cancellationToken = default)
         => _bookingRepository.GetByIdAsync(bookingId, cancellationToken);
 
+    //Create a new booking for a park. Used for multiple day bookings.
     public async Task<Booking?> CreateBookingAsync(
         Guid parkId,
         string guestName,
@@ -40,7 +46,9 @@ public class BookingService
         int dayCount,
         CancellationToken cancellationToken = default)
     {
+        //Retrieve the park from the repository via its parkId
         var park = await _parkRepository.GetByIdAsync(parkId, cancellationToken).ConfigureAwait(false);
+        //Check if the park exists, has availability for the requested guests, and can reserve the requested dates
         if (park is null)
         {
             return null;
@@ -56,6 +64,7 @@ public class BookingService
             return null;
         }
 
+        // Reserve guests and update the park repository
         park.ReserveGuests(guests);
         await _parkRepository.UpdateAsync(park, cancellationToken).ConfigureAwait(false);
 
@@ -74,6 +83,7 @@ public class BookingService
         return booking;
     }
 
+    //Create a new booking for a single day
     public async Task<Booking?> CreateSingleDayBookingAsync(
         Guid parkId,
         string guestName,
@@ -122,6 +132,7 @@ public class BookingService
         return booking;
     }
 
+    //Cancel an existing booking
     public async Task<bool> CancelBookingAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId, cancellationToken).ConfigureAwait(false);
@@ -145,6 +156,7 @@ public class BookingService
         return true;
     }
 
+    //Remove a booking from the system
     public async Task<bool> RemoveBookingAsync(Guid bookingId, CancellationToken cancellationToken = default)
     {
         var booking = await _bookingRepository.GetByIdAsync(bookingId, cancellationToken).ConfigureAwait(false);
