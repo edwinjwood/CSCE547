@@ -26,6 +26,7 @@ public class Booking
 
     public Money TotalPrice => new Money(PricePerDay.Amount * Guests * DayCount, PricePerDay.Currency);
 
+    //Constructor for booking
     public Booking(
         Guid parkId,
         string guestName,
@@ -36,6 +37,7 @@ public class Booking
     IEnumerable<DateOnly> reservedDates,
     GuestCategory guestCategory)
     {
+        //Ensure dayCount and guests are both positive
         if (dayCount <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(dayCount), "Bookings must be for at least one day.");
@@ -45,7 +47,7 @@ public class Booking
         {
             throw new ArgumentOutOfRangeException(nameof(guests), "Guest count must be positive.");
         }
-
+        //Assign values
         Id = Guid.NewGuid();
         ParkId = parkId;
         GuestName = guestName ?? throw new ArgumentNullException(nameof(guestName));
@@ -87,6 +89,7 @@ public class Booking
         GuestCategory = guestCategory;
     }
 
+    //Methods to change booking status. Check BookingStatus.cs for details on the enum. Status can be Pending, Confirmed, or Cancelled.
     public void Confirm()
     {
         Status = BookingStatus.Confirmed;
