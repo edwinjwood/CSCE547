@@ -1,0 +1,49 @@
+.flex {
+    border: 2px solid black;
+    display: flex;
+    justify-content: space-between;
+    flex-direction: row;
+    background-color: white;
+    z-index: 1000;
+}
+
+.cartNumber {
+    color: white;
+    background-color: red;
+    position: absolute;
+    font-size: .75em;
+    border-radius: 100%;
+    width: 25%;
+    right: 1em;
+    top: -.25em;
+}
+
+.inner-flex {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.right {
+    align-self: flex-end;
+}
+
+.title-arrow {
+    width: 25px;
+}
+
+.title-text > a {
+    padding-bottom: .25em;
+    font-weight: bold;
+    text-decoration: none;
+    color: black;
+}
+
+.title-text > a:hover {
+    color: #D06817;
+}
+
+.display {
+    position: relative;
+    padding: 0 1em;
+}
