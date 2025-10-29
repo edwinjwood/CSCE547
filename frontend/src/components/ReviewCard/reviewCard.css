@@ -1,0 +1,29 @@
+.star-rating  .icon {
+    color: #f59e0b;
+}
+
+.star-rating .icon-empty {
+    color: black;
+}
+
+.reviewCard {
+    background-color: white;
+    gap: 1em;
+    padding: 0.25em 1em 0.5em 1em;
+    margin: 1em;
+    border-radius: 1em;
+    border: 1px solid lightgray;
+    box-shadow: 1px 0 1px 0;
+    position: relative;
+}
+
+.date-container {
+    text-align: left;
+}
+
+.right-column {
+    position: absolute;
+    top: 1em;
+    right: 1em;
+}
+

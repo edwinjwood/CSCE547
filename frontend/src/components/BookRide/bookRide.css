@@ -1,0 +1,45 @@
+.book-container {
+    background-color: white;
+    padding: 2em 2em;
+    border-radius: 1em;
+    box-shadow: 2px 0 4px 0;
+    position: sticky;
+    top: 6rem;
+    width: clamp(80%, 75vw, 225px);
+}
+
+.input-field {
+    border: 1px solid lightgray;
+    border-radius: .25em;
+    margin: .5em auto .5em auto;
+    
+}
+
+.price, .days {
+    display: flex;
+    width: 80%;
+    flex-direction: column;
+    margin-bottom: .5em;
+    align-items: flex-start;
+}
+
+.button-add-to-cart {
+    background-color: #E9751A;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .75rem 1.5rem;
+    border-radius: .5rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    margin: 1em;
+}
+
+.button-add-to-cart:disabled {
+	background-color: lightgray;
+	cursor: auto;
+}
