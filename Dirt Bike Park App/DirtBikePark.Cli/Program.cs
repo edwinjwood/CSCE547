@@ -28,6 +28,16 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("AllowReactApp", policy =>
+	{
+		policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+			.AllowAnyHeader()
+			.AllowAnyMethod();
+	});
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -50,6 +60,8 @@ builder.Services.AddScoped<CartService>();
 var webApp = builder.Build();
 
 await SeedDataAsync(webApp.Services).ConfigureAwait(false);
+
+webApp.UseCors("AllowReactApp");
 
 webApp.UseSwagger();
 webApp.UseSwaggerUI();

@@ -49,3 +49,15 @@ Dirt Bike Park App/DirtBikePark.Cli/Data/*.db-wal
 
 # Tooling
 *.vs/
+
+# Node.js / React
+node_modules/
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
