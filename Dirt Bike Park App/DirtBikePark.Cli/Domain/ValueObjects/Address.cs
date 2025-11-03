@@ -8,6 +8,7 @@ namespace DirtBikePark.Cli.Domain.ValueObjects;
 /// </summary>
 public sealed class Address
 {
+    //Regex pattern to ensure valid street format (ex. "301 Hill St")
     private static readonly Regex StreetPattern = new("^[0-9]+\\s+.+", RegexOptions.Compiled);
 
     public string Street { get; }
@@ -15,6 +16,7 @@ public sealed class Address
     public string State { get; }
     public string PostalCode { get; }
 
+    //Constructor for address, ensure each field is valid
     public Address(string street, string city, string state, string postalCode)
     {
         Street = ValidateStreet(street);
@@ -23,6 +25,7 @@ public sealed class Address
         PostalCode = ValidateRequired(postalCode, nameof(postalCode));
     }
 
+    //Validate the street format using the regex StreetPattern. 
     private static string ValidateStreet(string value)
     {
         var trimmed = ValidateRequired(value, nameof(Street));
@@ -33,7 +36,7 @@ public sealed class Address
 
         return trimmed;
     }
-
+    //For the other fields, ensure they are not null or empty after trimming whitespace.
     private static string ValidateRequired(string? value, string fieldName)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -44,5 +47,6 @@ public sealed class Address
         return value.Trim();
     }
 
+    //Override ToString method to format the address
     public override string ToString() => $"{Street}, {City}, {State} {PostalCode}";
 }
