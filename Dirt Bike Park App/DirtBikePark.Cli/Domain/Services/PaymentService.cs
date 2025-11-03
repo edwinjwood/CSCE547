@@ -49,6 +49,7 @@ public class PaymentService
         return await _paymentProcessor.ProcessAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    //Validates the credit card number. Ensure it has the correct number of digits and passes the Luhn algorithm.
     private static void ValidateCardNumber(string cardNumber)
     {
         var digits = new string(cardNumber.Where(char.IsDigit).ToArray());
@@ -63,21 +64,25 @@ public class PaymentService
         }
     }
 
+    //Validates the expiration date. Ensure it is in MM/yy format and not expired.
     private static void ValidateExpiration(string expiration)
     {
+        //Get the expiration date in MM/yy format and throw an exception if invalid
         if (!DateTime.TryParseExact(expiration, "MM/yy", CultureInfo.InvariantCulture, DateTimeStyles.None, out var exp))
         {
             throw new ArgumentException("Expiration must be in MM/yy format.", nameof(expiration));
         }
-
+        //Set the expiration date to the last day of the month at 23:59:59
         var lastDay = DateTime.DaysInMonth(exp.Year, exp.Month);
         var expirationDate = new DateTime(exp.Year, exp.Month, lastDay, 23, 59, 59);
+        //Using this expiration date, check if the card is expired by comparing it to the current date
         if (expirationDate < DateTime.UtcNow)
         {
             throw new ArgumentException("Card has expired.", nameof(expiration));
         }
     }
 
+    //Validates the CVC code. Ensure it is 3 or 4 digits.
     private static void ValidateCvc(string cvc)
     {
         if (cvc.Length is not (3 or 4) || !cvc.All(char.IsDigit))
@@ -85,7 +90,7 @@ public class PaymentService
             throw new ArgumentException("CVC must be 3 or 4 digits.", nameof(cvc));
         }
     }
-
+    //Implements the Luhn algorithm to validate the credit card number. 
     private static bool PassesLuhnCheck(string digits)
     {
         var sum = 0;

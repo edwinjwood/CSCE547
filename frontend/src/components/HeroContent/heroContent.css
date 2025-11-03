@@ -1,0 +1,13 @@
+.banner {
+    background-image: url("https://placehold.co/1600x600/1C1C1C/E9751A?text=RideFinder");
+    min-height: 25em;
+    background-origin: border-box;
+    background-position: center;
+    width: 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
+}
+
+.content {
+    color: white;
+}

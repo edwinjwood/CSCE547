@@ -24,6 +24,7 @@ public class CommandRouter
     private readonly CartPage _cartPage;
     private readonly CheckoutPage _checkoutPage;
 
+
     public CommandRouter(
         ParkService parkService,
         BookingService bookingService,
@@ -38,7 +39,7 @@ public class CommandRouter
         _menuRenderer = menuRenderer;
         _welcomePage = new WelcomePage(_parkService, _menuRenderer);
         _parksPage = new ParksPage(_parkService, _menuRenderer);
-    _bookingsPage = new BookingsPage(_bookingService, _parkService, _cartService, _menuRenderer);
+        _bookingsPage = new BookingsPage(_bookingService, _parkService, _cartService, _menuRenderer);
         _cartPage = new CartPage(_cartService, _menuRenderer);
         _checkoutPage = new CheckoutPage(_cartService, _paymentService, _menuRenderer);
     }

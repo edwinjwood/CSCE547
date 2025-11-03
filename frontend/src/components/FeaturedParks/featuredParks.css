@@ -1,0 +1,14 @@
+.featured-park-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+    gap: 2rem;
+    width: 70%;
+    margin: auto;
+}
+
+.image-park {
+    border-radius: 1em 1em 0 0;
+    object-fit: cover;
+    height: 200px;
+    width: 100%;
+}
