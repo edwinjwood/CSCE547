@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using DirtBikePark.Cli.Domain.Entities;
 using DirtBikePark.Cli.Domain.Interfaces;
@@ -82,6 +83,53 @@ public static class ParkEndpoints
             .WithName("DeletePark")
             .WithSummary("Delete a park")
             .WithDescription("Removes a park when the supplied identifier exists.");
+
+        group.MapPost("/{id:guid}/guest-limit", async (Guid id, [FromBody] AddGuestLimitRequest request, IParkRepository repository, CancellationToken cancellationToken) =>
+            {
+                var park = await repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (park is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (!request.TryValidate(out var errors))
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                park.UpdateGuestLimit(park.GuestLimit + request.GuestsToAdd);
+
+                await repository.UpdateAsync(park, cancellationToken).ConfigureAwait(false);
+
+                return Results.Ok(ParkResponse.FromDomain(park));
+            })
+            .WithName("AddGuestLimit")
+            .WithSummary("Add guest capacity to a park")
+            .WithDescription("Increases the guest limit for a park by the supplied amount.");
+
+        group.MapDelete("/{id:guid}/guest-limit", async (Guid id, [FromBody] RemoveGuestLimitRequest request, IParkRepository repository, CancellationToken cancellationToken) =>
+            {
+                var park = await repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (park is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (!request.TryValidate(park, out var errors))
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                var newLimit = park.GuestLimit - request.GuestsToRemove;
+                park.UpdateGuestLimit(newLimit);
+
+                await repository.UpdateAsync(park, cancellationToken).ConfigureAwait(false);
+
+                return Results.Ok(ParkResponse.FromDomain(park));
+            })
+            .WithName("RemoveGuestLimit")
+            .WithSummary("Remove guest capacity from a park")
+            .WithDescription("Decreases the guest limit for a park by the supplied amount. Cannot reduce below current bookings.");
 
         return group;
     }
@@ -270,6 +318,48 @@ public static class ParkEndpoints
                 DateTime.UtcNow);
 
             return true;
+        }
+    }
+
+    private sealed class AddGuestLimitRequest
+    {
+        public int GuestsToAdd { get; init; }
+
+        public bool TryValidate(out Dictionary<string, string[]> errors)
+        {
+            errors = new Dictionary<string, string[]>();
+
+            if (GuestsToAdd <= 0)
+            {
+                errors["GuestsToAdd"] = new[] { "Guests to add must be greater than zero." };
+            }
+
+            return errors.Count == 0;
+        }
+    }
+
+    private sealed class RemoveGuestLimitRequest
+    {
+        public int GuestsToRemove { get; init; }
+
+        public bool TryValidate(Park park, out Dictionary<string, string[]> errors)
+        {
+            errors = new Dictionary<string, string[]>();
+
+            if (GuestsToRemove <= 0)
+            {
+                errors["GuestsToRemove"] = new[] { "Guests to remove must be greater than zero." };
+            }
+
+            var currentlyBooked = park.GuestLimit - park.AvailableGuestCapacity;
+            var newLimit = park.GuestLimit - GuestsToRemove;
+
+            if (newLimit < currentlyBooked)
+            {
+                errors["GuestsToRemove"] = new[] { $"Cannot reduce limit below current bookings ({currentlyBooked} guests currently booked)." };
+            }
+
+            return errors.Count == 0;
         }
     }
 }
