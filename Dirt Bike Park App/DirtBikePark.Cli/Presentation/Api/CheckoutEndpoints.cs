@@ -16,7 +16,8 @@ public static class CheckoutEndpoints
 {
     public static RouteGroupBuilder MapCheckoutEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/checkout");
+        var group = endpoints.MapGroup("/api/checkout")
+            .WithTags("Checkout");
 
         group.MapPost("/", async (CheckoutRequest request, PaymentService paymentService, CancellationToken cancellationToken) =>
             {

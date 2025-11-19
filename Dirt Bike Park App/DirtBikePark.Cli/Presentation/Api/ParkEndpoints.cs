@@ -18,7 +18,8 @@ public static class ParkEndpoints
 {
     public static RouteGroupBuilder MapParkEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var group = endpoints.MapGroup("/api/parks");
+        var group = endpoints.MapGroup("/api/parks")
+            .WithTags("Parks");
 
         group.MapGet("/", async (IParkRepository repository, CancellationToken cancellationToken) =>
             {
