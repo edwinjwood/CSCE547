@@ -1,8 +1,9 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using DirtBikePark.Cli.App;
 using DirtBikePark.Cli.Data;
 using DirtBikePark.Cli.Domain.Interfaces;
 using DirtBikePark.Cli.Domain.Services;
+using DirtBikePark.Cli.Infrastructure.Payments;
 using DirtBikePark.Cli.Infrastructure.Repositories;
 using DirtBikePark.Cli.Infrastructure.Storage;
 using DirtBikePark.Cli.Presentation.Api;
@@ -56,6 +57,8 @@ builder.Services.AddScoped<ICartRepository, SqliteCartRepository>();
 builder.Services.AddScoped<ParkService>();
 builder.Services.AddScoped<BookingService>();
 builder.Services.AddScoped<CartService>();
+builder.Services.AddScoped<IPaymentProcessor, MockPaymentProcessor>();
+builder.Services.AddScoped<PaymentService>();
 
 var webApp = builder.Build();
 
@@ -69,6 +72,7 @@ webApp.UseSwaggerUI();
 webApp.MapParkEndpoints();
 webApp.MapBookingEndpoints();
 webApp.MapCartEndpoints();
+webApp.MapCheckoutEndpoints();
 
 webApp.Run();
 
