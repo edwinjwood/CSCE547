@@ -19,7 +19,7 @@ public static class CheckoutEndpoints
         var group = endpoints.MapGroup("/api/checkout")
             .WithTags("Checkout");
 
-        group.MapPost("/", async (CheckoutRequest request, PaymentService paymentService, CancellationToken cancellationToken) =>
+        group.MapPost("/", async (CheckoutRequest request, PaymentService paymentService, CartService cartService, CancellationToken cancellationToken) =>
             {
                 // Step 1: Validate the request
                 if (!request.TryValidate(out var errors))
@@ -27,14 +27,21 @@ public static class CheckoutEndpoints
                     return Results.ValidationProblem(errors);
                 }
 
-                // Step 2: Create billing address from request
+                // Step 2: Validate cart has items
+                var cart = await cartService.GetOrCreateCartAsync(request.CartId, cancellationToken).ConfigureAwait(false);
+                if (cart.Items.Count == 0)
+                {
+                    return Results.BadRequest(new { message = "Cannot checkout an empty cart. Please add items before checking out." });
+                }
+
+                // Step 3: Create billing address from request
                 var billingAddress = new Address(
                     request.Street,
                     request.City,
                     request.State,
                     request.PostalCode);
 
-                // Step 3: Process payment
+                // Step 4: Process payment
                 var paymentResult = await paymentService.ProcessPaymentAsync(
                     request.CartId,
                     request.CardholderName,
@@ -44,13 +51,10 @@ public static class CheckoutEndpoints
                     billingAddress,
                     cancellationToken).ConfigureAwait(false);
 
-                // Step 4: Return response
+                // Step 5: Return response
                 return Results.Ok(new CheckoutResponse(
                     Success: paymentResult.Success,
-                    Message: paymentResult.Message,
-                    Amount: null,
-                    Currency: null,
-                    BookingIds: null));
+                    Message: paymentResult.Message));
             })
             .WithName("ProcessCheckout")
             .WithSummary("Process payment and checkout cart")
@@ -169,8 +173,5 @@ public static class CheckoutEndpoints
     /// </summary>
     private sealed record CheckoutResponse(
         bool Success,
-        string Message,
-        decimal? Amount,
-        string? Currency,
-        IReadOnlyCollection<Guid>? BookingIds);
+        string Message);
 }
