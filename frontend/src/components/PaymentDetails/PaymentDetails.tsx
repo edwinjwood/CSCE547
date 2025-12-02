@@ -14,8 +14,34 @@ export default function PaymentDetails() {
         setName(e.target.value);
     }
 
-    const sendCardDetails = () => {
-        console.log("Sent!");
+    const sendCardDetails = async () => {
+        const cartId = localStorage.getItem("cartId");
+
+        if (!cartId) {
+            alert("No cart found. Please add items to your cart first.");
+            return;
+        }
+
+        const paymentData = {
+            cartId,
+            cardholderName: name,
+            cardNumber,
+            expirationMonthYear: expDate,
+            cvc: "",
+            street: "",
+            city: "",
+            state: "",
+            postalCode: "",
+        };
+
+        await fetch("http://localhost:5000/api/checkout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(paymentData),
+        });
+
         setCardNumber("");
         setExpDate("");
         setName("");
