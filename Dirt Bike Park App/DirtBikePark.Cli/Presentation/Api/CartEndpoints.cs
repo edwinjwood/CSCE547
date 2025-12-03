@@ -17,7 +17,8 @@ public static class CartEndpoints
 {
     public static void MapCartEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var carts = endpoints.MapGroup("/api/carts");
+        var carts = endpoints.MapGroup("/api/carts")
+            .WithTags("Carts");
 
         carts.MapGet("/", async (Guid? id, CartService cartService, CancellationToken ct) =>
             {
@@ -88,7 +89,7 @@ public static class CartEndpoints
         var booking = await service.CreateSingleDayBookingAsync(request.ParkId.Value, request.GuestName, guestCategory, date, ct).ConfigureAwait(false);
         if (booking is null)
         {
-            return (false, Guid.Empty, Results.BadRequest(new { message = "Unable to create booking with the supplied details." }));
+            return (false, Guid.Empty, Results.BadRequest(new { message = "Unable to create booking. Possible reasons: park not found, park at capacity, or date not available." }));
         }
 
         return (true, booking.Id, Results.Empty);
