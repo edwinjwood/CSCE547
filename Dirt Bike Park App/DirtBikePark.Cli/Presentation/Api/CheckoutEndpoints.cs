@@ -71,7 +71,7 @@ public static class CheckoutEndpoints
                     Success: paymentResult.Success,
                     Message: paymentResult.Message));
             })
-            .WithName("ProcessCheckout")
+            .WithName("ProcessPayment")
             .WithSummary("Process payment and checkout cart")
             .WithDescription("Processes payment for a cart containing bookings. On success, all bookings are confirmed and cart is cleared.");
 
