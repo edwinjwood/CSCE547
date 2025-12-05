@@ -1,6 +1,8 @@
 import { useState } from "react";
+import CartService from "../../services/cartService";
 
 export default function PaymentDetails() {
+    const cartService = new CartService();
 
     const [cardNumber, setCardNumber] = useState("");
     const [expDate, setExpDate] = useState("");
@@ -21,6 +23,12 @@ export default function PaymentDetails() {
 
     const sendCardDetails = async () => {
         const cartId = localStorage.getItem("cartId");
+        const cartItems = cartService.loadCart() || [];
+
+        if (!cartItems.length) {
+            alert("No cart items found. Please add items to your cart first.");
+            return;
+        }
 
         if (!cartId) {
             alert("No cart found. Please add items to your cart first.");
@@ -37,6 +45,12 @@ export default function PaymentDetails() {
             city,
             state,
             postalCode,
+            items: cartItems.map((item) => ({
+                parkId: item.park.id,
+                adults: item.numAdults,
+                kids: item.numKids,
+                dayCount: item.numDays
+            }))
         };
 
         try {
@@ -63,6 +77,7 @@ export default function PaymentDetails() {
                 setPostalCode("");
                 // Clear cart
                 localStorage.removeItem("cartId");
+                localStorage.removeItem("rideFinderExampleApp");
             } else {
                 alert(`Payment failed: ${result.message || "Unknown error"}`);
             }

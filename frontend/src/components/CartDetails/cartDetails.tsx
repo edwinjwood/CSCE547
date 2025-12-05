@@ -58,7 +58,14 @@ export default function CartDetails(props: CartDetailsProps) {
     return(
         <div>
             <div className="cartItems column">
-                {cart.map(((item: CartItem) => <CartCard cartItem={item} updateFn={(e) => updateCartItem(e)} deleteFn={deleteCartItem} />))}      
+                {cart.map((item: CartItem) => (
+                    <CartCard
+                        key={item.park.id}
+                        cartItem={item}
+                        updateFn={(e) => updateCartItem(e)}
+                        deleteFn={deleteCartItem}
+                    />
+                ))}      
             </div>
             <div>
                 Tax: ${getTaxPrice().toFixed(2)}
