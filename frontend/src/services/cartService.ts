@@ -4,12 +4,18 @@ export default class CartService {
     private items: CartItem[];
 
     private CART_KEY = 'rideFinderExampleApp'
+    private CART_ID_KEY = 'cartId'
 
 
     //loadCart will be our public facing method, all invocations of getCart should be internal so we only have one source of truth
 
     loadCart = (): CartItem[] => {
-        return JSON.parse(localStorage.getItem(this.CART_KEY));
+        const raw = localStorage.getItem(this.CART_KEY);
+        const cart = raw ? JSON.parse(raw) : [];
+        if (cart && cart.length > 0) {
+            this.ensureCartId();
+        }
+        return cart;
     }
 
     addItemToCart = (newItem: CartItem) => {
@@ -50,6 +56,22 @@ export default class CartService {
     }
 
     private save(cart: CartItem[]) {
-        localStorage.setItem(this.CART_KEY, JSON.stringify(cart));
+        if (cart.length > 0) {
+            this.ensureCartId();
+            localStorage.setItem(this.CART_KEY, JSON.stringify(cart));
+        } else {
+            localStorage.removeItem(this.CART_KEY);
+            localStorage.removeItem(this.CART_ID_KEY);
+        }
+    }
+
+    private ensureCartId(): string {
+        const existing = localStorage.getItem(this.CART_ID_KEY);
+        if (existing) {
+            return existing;
+        }
+        const newId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+        localStorage.setItem(this.CART_ID_KEY, newId);
+        return newId;
     }
 }

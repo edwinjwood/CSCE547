@@ -20,7 +20,8 @@ export default class ParkService {
                 adultPrice: park.pricePerGuestPerDay,
                 childPrice: park.pricePerGuestPerDay * 0.6, // Assuming child price is 60% of adult
                 imageUrl: `https://placehold.co/600x400/334155/FFF?text=${encodeURIComponent(park.name)}`,
-                reviews: [] as Review[] // Backend doesn't have reviews yet
+                // Backend doesn't have reviews yet; provide static placeholder reviews so UI rating logic works
+                reviews: defaultReviews.map(r => ({ ...r }))
             }));
         } catch (error) {
             console.error("Error fetching parks:", error);
@@ -41,7 +42,7 @@ export default class ParkService {
                 adultPrice: park.pricePerGuestPerDay,
                 childPrice: park.pricePerGuestPerDay * 0.6,
                 imageUrl: `https://placehold.co/600x400/334155/FFF?text=${encodeURIComponent(park.name)}`,
-                reviews: [] as Review[]
+                reviews: defaultReviews.map(r => ({ ...r }))
             };
         } catch (error) {
             console.error(`Error fetching park ${id}:`, error);
@@ -51,6 +52,35 @@ export default class ParkService {
         }
     }
 }
+
+const defaultReviews: Review[] = [
+    {
+        author: {
+            id: "00000000-0000-0000-0000-000000000001",
+            displayName: "Trail Tester",
+            fullName: "Alex Rider",
+            dateOfBirth: new Date("1990-01-01")
+        },
+        rating: 5,
+        review: "Great time at the park!",
+        dateWritten: new Date(),
+        dateVisited: new Date(),
+        active: true
+    },
+    {
+        author: {
+            id: "00000000-0000-0000-0000-000000000002",
+            displayName: "Moto Fan",
+            fullName: "Jamie Creek",
+            dateOfBirth: new Date("1988-05-12")
+        },
+        rating: 4,
+        review: "Good mix of trails and jumps.",
+        dateWritten: new Date(),
+        dateVisited: new Date(),
+        active: true
+    }
+];
 
 const mockData = [
     {
