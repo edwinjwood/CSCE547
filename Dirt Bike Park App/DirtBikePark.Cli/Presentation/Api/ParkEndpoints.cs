@@ -151,7 +151,8 @@ public static class ParkEndpoints
         string Currency,
         IReadOnlyCollection<string> AvailableDates,
         DateTime CreatedAtUtc,
-        DateTime LastModifiedUtc)
+        DateTime LastModifiedUtc,
+        IReadOnlyCollection<ReviewResponse> Reviews)
     {
         public static ParkResponse FromDomain(Park park)
         {
@@ -171,9 +172,54 @@ public static class ParkEndpoints
                 park.PricePerGuestPerDay.Currency,
                 availableDates,
                 park.CreatedAtUtc,
-                park.LastModifiedUtc);
+                park.LastModifiedUtc,
+                BuildPlaceholderReviews(park));
         }
     }
+
+    /// <summary>
+    /// The frontend expects at least one review per park to render ratings; backend does not yet persist reviews,
+    /// so we supply static placeholder reviews.
+    /// </summary>
+    private static IReadOnlyCollection<ReviewResponse> BuildPlaceholderReviews(Park park)
+    {
+        return new List<ReviewResponse>
+        {
+            new(
+                new AuthorResponse(
+                    Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                    "Trail Tester",
+                    "Alex Rider"),
+                5,
+                "Great time at the park!",
+                DateTime.UtcNow.AddDays(-3),
+                DateTime.UtcNow.AddDays(-4),
+                true),
+            new(
+                new AuthorResponse(
+                    Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                    "Moto Fan",
+                    "Jamie Creek"),
+                4,
+                $"Loved riding at {park.Name}.",
+                DateTime.UtcNow.AddDays(-7),
+                DateTime.UtcNow.AddDays(-8),
+                true)
+        }.AsReadOnly();
+    }
+
+    private sealed record ReviewResponse(
+        AuthorResponse Author,
+        int Rating,
+        string Review,
+        DateTime DateWritten,
+        DateTime DateVisited,
+        bool Active);
+
+    private sealed record AuthorResponse(
+        Guid Id,
+        string DisplayName,
+        string FullName);
 
     private sealed class CreateParkRequest
     {
