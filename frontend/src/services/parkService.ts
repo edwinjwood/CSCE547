@@ -1,27 +1,86 @@
+import axios from "axios";
 import IPark from "../models/park";
+import Review from "../models/review";
+
+const API_BASE_URL = "http://localhost:5000/api";
 
 export default class ParkService {
 
     public parks: IPark[] = [];
 
     getAllParks: () => Promise<IPark[]> = async () => {
-        const parks = mockData.map((val) => JSON.parse(JSON.stringify(val)))
-        return new Promise((res) => {
-            setTimeout(() => {
-                res(parks)
-            }, 300);
-        });
+        try {
+            const response = await axios.get<any[]>(`${API_BASE_URL}/parks`);
+            // Map backend response to frontend IPark interface
+            return response.data.map(park => ({
+                id: park.id,
+                parkName: park.name,
+                location: park.location,
+                description: park.description,
+                adultPrice: park.pricePerGuestPerDay,
+                childPrice: park.pricePerGuestPerDay * 0.6, // Assuming child price is 60% of adult
+                imageUrl: `https://placehold.co/600x400/334155/FFF?text=${encodeURIComponent(park.name)}`,
+                // Backend doesn't have reviews yet; provide static placeholder reviews so UI rating logic works
+                reviews: defaultReviews.map(r => ({ ...r }))
+            }));
+        } catch (error) {
+            console.error("Error fetching parks:", error);
+            // Fallback to mock data if API fails
+            return mockData.map((val) => JSON.parse(JSON.stringify(val)));
+        }
     };
 
     getParkById: (id: string) => Promise<IPark> = async (id: string) => {
-        const parks = mockData.map((val) => JSON.parse(JSON.stringify(val)));
-        return new Promise((res) => {
-            setTimeout(() => {
-                res(parks.find((park) => park.id === id))
-            }, 500)
-        })
+        try {
+            const response = await axios.get<any>(`${API_BASE_URL}/parks/${id}`);
+            const park = response.data;
+            return {
+                id: park.id,
+                parkName: park.name,
+                location: park.location,
+                description: park.description,
+                adultPrice: park.pricePerGuestPerDay,
+                childPrice: park.pricePerGuestPerDay * 0.6,
+                imageUrl: `https://placehold.co/600x400/334155/FFF?text=${encodeURIComponent(park.name)}`,
+                reviews: defaultReviews.map(r => ({ ...r }))
+            };
+        } catch (error) {
+            console.error(`Error fetching park ${id}:`, error);
+            // Fallback to mock data
+            const parks = mockData.map((val) => JSON.parse(JSON.stringify(val)));
+            return parks.find((park) => park.id === id);
+        }
     }
 }
+
+const defaultReviews: Review[] = [
+    {
+        author: {
+            id: "00000000-0000-0000-0000-000000000001",
+            displayName: "Trail Tester",
+            fullName: "Alex Rider",
+            dateOfBirth: new Date("1990-01-01")
+        },
+        rating: 5,
+        review: "Great time at the park!",
+        dateWritten: new Date(),
+        dateVisited: new Date(),
+        active: true
+    },
+    {
+        author: {
+            id: "00000000-0000-0000-0000-000000000002",
+            displayName: "Moto Fan",
+            fullName: "Jamie Creek",
+            dateOfBirth: new Date("1988-05-12")
+        },
+        rating: 4,
+        review: "Good mix of trails and jumps.",
+        dateWritten: new Date(),
+        dateVisited: new Date(),
+        active: true
+    }
+];
 
 const mockData = [
     {

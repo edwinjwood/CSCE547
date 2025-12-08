@@ -19,7 +19,7 @@ public static class CheckoutEndpoints
         var group = endpoints.MapGroup("/api/checkout")
             .WithTags("Checkout");
 
-        group.MapPost("/", async (CheckoutRequest request, PaymentService paymentService, CartService cartService, CancellationToken cancellationToken) =>
+        group.MapPost("/", async (CheckoutRequest request, PaymentService paymentService, CartService cartService, BookingService bookingService, CancellationToken cancellationToken) =>
             {
                 // Step 1: Validate the request
                 if (!request.TryValidate(out var errors))
@@ -27,23 +27,38 @@ public static class CheckoutEndpoints
                     return Results.ValidationProblem(errors);
                 }
 
-                // Step 2: Validate cart has items
+                // Step 2: Ensure cart exists even if client-side cart items are not stored server-side
                 var cart = await cartService.GetOrCreateCartAsync(request.CartId, cancellationToken).ConfigureAwait(false);
-                if (cart.Items.Count == 0)
+
+                // Step 3: Persist bookings from cart items into the server cart
+                foreach (var item in request.Items)
                 {
-                    return Results.BadRequest(new { message = "Cannot checkout an empty cart. Please add items before checking out." });
+                    var booking = await bookingService.CreateBookingForCartItemAsync(
+                        item.ParkId,
+                        request.CardholderName,
+                        item.Adults,
+                        item.Kids,
+                        item.DayCount,
+                        cancellationToken).ConfigureAwait(false);
+
+                    if (booking is null)
+                    {
+                        return Results.BadRequest(new { message = "Unable to create booking for one or more cart items (capacity/dates unavailable)." });
+                    }
+
+                    await cartService.AddBookingToCartAsync(cart.Id, booking.Id, quantity: 1, cancellationToken).ConfigureAwait(false);
                 }
 
-                // Step 3: Create billing address from request
+                // Step 4: Create billing address from request
                 var billingAddress = new Address(
                     request.Street,
                     request.City,
                     request.State,
                     request.PostalCode);
 
-                // Step 4: Process payment
+                // Step 5: Process payment (cart totals may be zero when the UI manages items client-side)
                 var paymentResult = await paymentService.ProcessPaymentAsync(
-                    request.CartId,
+                    cart.Id,
                     request.CardholderName,
                     request.CardNumber,
                     request.ExpirationMonthYear,
@@ -51,12 +66,12 @@ public static class CheckoutEndpoints
                     billingAddress,
                     cancellationToken).ConfigureAwait(false);
 
-                // Step 5: Return response
+                // Step 6: Return response
                 return Results.Ok(new CheckoutResponse(
                     Success: paymentResult.Success,
                     Message: paymentResult.Message));
             })
-            .WithName("ProcessCheckout")
+            .WithName("ProcessPayment")
             .WithSummary("Process payment and checkout cart")
             .WithDescription("Processes payment for a cart containing bookings. On success, all bookings are confirmed and cart is cleared.");
 
@@ -77,6 +92,7 @@ public static class CheckoutEndpoints
         public string City { get; init; } = string.Empty;
         public string State { get; init; } = string.Empty;
         public string PostalCode { get; init; } = string.Empty;
+        public List<CartItemRequest> Items { get; init; } = new();
 
         public bool TryValidate(out Dictionary<string, string[]> errors)
         {
@@ -143,6 +159,32 @@ public static class CheckoutEndpoints
                 errors["PostalCode"] = new[] { "Postal code is required." };
             }
 
+            if (Items is null || Items.Count == 0)
+            {
+                errors["Items"] = new[] { "At least one cart item is required." };
+            }
+            else
+            {
+                for (var i = 0; i < Items.Count; i++)
+                {
+                    var item = Items[i];
+                    if (item.ParkId == Guid.Empty)
+                    {
+                        errors[$"Items[{i}].ParkId"] = new[] { "ParkId is required." };
+                    }
+
+                    if (item.DayCount <= 0)
+                    {
+                        errors[$"Items[{i}].DayCount"] = new[] { "DayCount must be at least 1." };
+                    }
+
+                    if (item.Adults + item.Kids <= 0)
+                    {
+                        errors[$"Items[{i}].Guests"] = new[] { "At least one guest (adult or child) is required." };
+                    }
+                }
+            }
+
             return errors.Count == 0;
         }
 
@@ -166,6 +208,14 @@ public static class CheckoutEndpoints
 
             return true;
         }
+    }
+
+    private sealed class CartItemRequest
+    {
+        public Guid ParkId { get; init; }
+        public int Adults { get; init; }
+        public int Kids { get; init; }
+        public int DayCount { get; init; } = 1;
     }
 
     /// <summary>

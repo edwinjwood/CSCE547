@@ -72,7 +72,7 @@ public static class ParkEndpoints
                 await repository.UpdateAsync(updated, cancellationToken).ConfigureAwait(false);
                 return Results.Ok(ParkResponse.FromDomain(updated));
             })
-            .WithName("UpdatePark")
+            .WithName("EditPark")
             .WithSummary("Update an existing park")
             .WithDescription("Replaces all editable fields on an existing park.");
 
@@ -104,7 +104,7 @@ public static class ParkEndpoints
 
                 return Results.Ok(ParkResponse.FromDomain(park));
             })
-            .WithName("AddGuestLimit")
+            .WithName("AddGuestLimitToPark")
             .WithSummary("Add guest capacity to a park")
             .WithDescription("Increases the guest limit for a park by the supplied amount.");
 
@@ -132,6 +132,38 @@ public static class ParkEndpoints
             .WithSummary("Remove guest capacity from a park")
             .WithDescription("Decreases the guest limit for a park by the supplied amount. Cannot reduce below current bookings.");
 
+        group.MapDelete("/{id:guid}/guests", async (Guid id, [FromBody] RemoveGuestsForDateRequest request, IParkRepository repository, CancellationToken cancellationToken) =>
+            {
+                var park = await repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+                if (park is null)
+                {
+                    return Results.NotFound();
+                }
+
+                if (!request.TryValidate(out var date, out var errors))
+                {
+                    return Results.ValidationProblem(errors);
+                }
+
+                if (!park.HasAvailabilityFor(request.GuestsToRemove))
+                {
+                    return Results.BadRequest(new { message = "Not enough available capacity to remove requested guests." });
+                }
+
+                if (!park.TryReserveSpecificDate(date))
+                {
+                    return Results.BadRequest(new { message = "Requested date is not available." });
+                }
+
+                park.ReserveGuests(request.GuestsToRemove);
+                await repository.UpdateAsync(park, cancellationToken).ConfigureAwait(false);
+
+                return Results.Ok(ParkResponse.FromDomain(park));
+            })
+            .WithName("RemoveGuestsFromPark")
+            .WithSummary("Remove guests from a park for a specific date")
+            .WithDescription("Decreases available capacity for the supplied date by the requested number of guests.");
+
         return group;
     }
 
@@ -151,7 +183,8 @@ public static class ParkEndpoints
         string Currency,
         IReadOnlyCollection<string> AvailableDates,
         DateTime CreatedAtUtc,
-        DateTime LastModifiedUtc)
+        DateTime LastModifiedUtc,
+        IReadOnlyCollection<ReviewResponse> Reviews)
     {
         public static ParkResponse FromDomain(Park park)
         {
@@ -171,9 +204,54 @@ public static class ParkEndpoints
                 park.PricePerGuestPerDay.Currency,
                 availableDates,
                 park.CreatedAtUtc,
-                park.LastModifiedUtc);
+                park.LastModifiedUtc,
+                BuildPlaceholderReviews(park));
         }
     }
+
+    /// <summary>
+    /// The frontend expects at least one review per park to render ratings; backend does not yet persist reviews,
+    /// so we supply static placeholder reviews.
+    /// </summary>
+    private static IReadOnlyCollection<ReviewResponse> BuildPlaceholderReviews(Park park)
+    {
+        return new List<ReviewResponse>
+        {
+            new(
+                new AuthorResponse(
+                    Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                    "Trail Tester",
+                    "Alex Rider"),
+                5,
+                "Great time at the park!",
+                DateTime.UtcNow.AddDays(-3),
+                DateTime.UtcNow.AddDays(-4),
+                true),
+            new(
+                new AuthorResponse(
+                    Guid.Parse("00000000-0000-0000-0000-000000000002"),
+                    "Moto Fan",
+                    "Jamie Creek"),
+                4,
+                $"Loved riding at {park.Name}.",
+                DateTime.UtcNow.AddDays(-7),
+                DateTime.UtcNow.AddDays(-8),
+                true)
+        }.AsReadOnly();
+    }
+
+    private sealed record ReviewResponse(
+        AuthorResponse Author,
+        int Rating,
+        string Review,
+        DateTime DateWritten,
+        DateTime DateVisited,
+        bool Active);
+
+    private sealed record AuthorResponse(
+        Guid Id,
+        string DisplayName,
+        string FullName);
 
     private sealed class CreateParkRequest
     {
@@ -358,6 +436,30 @@ public static class ParkEndpoints
             if (newLimit < currentlyBooked)
             {
                 errors["GuestsToRemove"] = new[] { $"Cannot reduce limit below current bookings ({currentlyBooked} guests currently booked)." };
+            }
+
+            return errors.Count == 0;
+        }
+    }
+
+    private sealed class RemoveGuestsForDateRequest
+    {
+        public string Date { get; init; } = string.Empty;
+        public int GuestsToRemove { get; init; }
+
+        public bool TryValidate(out DateOnly date, out Dictionary<string, string[]> errors)
+        {
+            errors = new Dictionary<string, string[]>();
+            date = default;
+
+            if (GuestsToRemove <= 0)
+            {
+                errors["GuestsToRemove"] = new[] { "Guests to remove must be greater than zero." };
+            }
+
+            if (!DateOnly.TryParse(Date, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+            {
+                errors["Date"] = new[] { "Date must be in yyyy-MM-dd format." };
             }
 
             return errors.Count == 0;

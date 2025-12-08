@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using DirtBikePark.Cli.App;
 using DirtBikePark.Cli.Data;
@@ -26,6 +27,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
+	options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+	options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
 	options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 

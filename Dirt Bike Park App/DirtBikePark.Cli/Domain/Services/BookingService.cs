@@ -83,6 +83,60 @@ public class BookingService
         return booking;
     }
 
+    //Create a booking from a cart item that may include adults and kids; prices kids at 60% of adult rate.
+    public async Task<Booking?> CreateBookingForCartItemAsync(
+        Guid parkId,
+        string guestName,
+        int adults,
+        int kids,
+        int dayCount,
+        CancellationToken cancellationToken = default)
+    {
+        var totalGuests = adults + kids;
+        if (totalGuests <= 0 || dayCount <= 0)
+        {
+            return null;
+        }
+
+        var park = await _parkRepository.GetByIdAsync(parkId, cancellationToken).ConfigureAwait(false);
+        if (park is null)
+        {
+            return null;
+        }
+
+        if (!park.HasAvailabilityFor(totalGuests))
+        {
+            return null;
+        }
+
+        if (!park.TryReserveDates(dayCount, out var reservedDates))
+        {
+            return null;
+        }
+
+        park.ReserveGuests(totalGuests);
+        await _parkRepository.UpdateAsync(park, cancellationToken).ConfigureAwait(false);
+
+        var adultAmount = park.PricePerGuestPerDay.Amount * adults;
+        var childAmount = park.PricePerGuestPerDay.Amount * 0.6m * kids;
+        var blendedPerGuestPerDay = (adultAmount + childAmount) / totalGuests;
+
+        var safeGuestName = string.IsNullOrWhiteSpace(guestName) ? "Guest" : guestName.Trim();
+        var booking = new Booking(
+            parkId,
+            safeGuestName,
+            totalGuests,
+            reservedDates.First(),
+            dayCount,
+            new Money(blendedPerGuestPerDay, park.PricePerGuestPerDay.Currency),
+            reservedDates,
+            GuestCategory.Adult);
+
+        booking.Confirm();
+        await _bookingRepository.AddAsync(booking, cancellationToken).ConfigureAwait(false);
+        return booking;
+    }
+
     //Create a new booking for a single day
     public async Task<Booking?> CreateSingleDayBookingAsync(
         Guid parkId,
