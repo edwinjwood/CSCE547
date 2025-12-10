@@ -30,6 +30,7 @@ export default class ParkService {
         }
     };
 
+    
     getParkById: (id: string) => Promise<IPark> = async (id: string) => {
         try {
             const response = await axios.get<any>(`${API_BASE_URL}/parks/${id}`);

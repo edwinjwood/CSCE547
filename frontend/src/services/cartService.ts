@@ -6,7 +6,6 @@ export default class CartService {
     private CART_KEY = 'rideFinderExampleApp'
     private CART_ID_KEY = 'cartId'
 
-
     //loadCart will be our public facing method, all invocations of getCart should be internal so we only have one source of truth
 
     loadCart = (): CartItem[] => {
