@@ -17,7 +17,8 @@ public static class BookingEndpoints
 {
     public static void MapBookingEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        var bookings = endpoints.MapGroup("/api/bookings");
+        var bookings = endpoints.MapGroup("/api/bookings")
+            .WithTags("Bookings");
 
         bookings.MapGet("/", async (BookingService service, CancellationToken ct) =>
             {
@@ -48,7 +49,8 @@ public static class BookingEndpoints
             .WithSummary("Remove a booking")
             .WithDescription("Deletes a booking and releases its reserved capacity.");
 
-        var parkBookings = endpoints.MapGroup("/api/parks/{parkId:guid}/bookings");
+        var parkBookings = endpoints.MapGroup("/api/parks/{parkId:guid}/bookings")
+            .WithTags("Bookings");
 
         parkBookings.MapGet("/", async (Guid parkId, BookingService service, CancellationToken ct) =>
             {
