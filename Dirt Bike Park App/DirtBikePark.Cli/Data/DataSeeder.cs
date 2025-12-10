@@ -60,4 +60,5 @@ public static class DataSeeder
             await parkRepository.AddAsync(park, cancellationToken).ConfigureAwait(false);
         }
     }
+    
 }
